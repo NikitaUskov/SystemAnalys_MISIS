@@ -2,11 +2,6 @@ import csv
 import argparse
 from collections import defaultdict, deque
 import io
-import sys
-
-# Импортируем парсер из соседней папки
-sys.path.append('../SystemAnalys_MISIS/task1/task1.py"')  # путь к папке с вашим парсером
-from task1.py import parse_csv_input  # Импортируйте свою функцию парсинга
 
 
 # Функция для поиска всех потомков (прямых и косвенных) узла
@@ -39,10 +34,26 @@ def find_ancestors(reverse_graph, node):
     return ancestors
 
 
+# Функция для чтения конкретной ячейки из CSV файла
+def get_value_from_csv(csv_file_path, row_num, col_num):
+    with open(csv_file_path, newline='') as csvfile:
+        csv_reader = csv.reader(csvfile)
+        for i, row in enumerate(csv_reader, start=1):  # Нумерация строк начинается с 1
+            if i == row_num:  # Если это нужная строка
+                try:
+                    value = row[col_num - 1]  # Вычитаем 1 для корректной работы с индексом столбца
+                    if value.strip() == '':  # Если значение пустое, возвращаем None
+                        return None
+                    return value  # Возвращаем значение как есть (строка или число)
+                except IndexError:
+                    return f"Ошибка: Номер столбца {col_num} выходит за пределы."
+    return f"Ошибка: Номер строки {row_num} выходит за пределы."
+
+
 # Основная функция для подсчета отношений
 def main(filepath: str):
-    # Шаг 1: Парсинг данных из CSV файла через внешний модуль
-    edges = parse_csv_input(filepath)  # Используем внешний парсер
+    # Чтение данных из CSV файла через парсер
+    edges = get_value_from_csv(filepath, 1, 1)  # используем свой старый парсер
 
     # Создаем граф и обратный граф (для предков)
     graph = defaultdict(list)
