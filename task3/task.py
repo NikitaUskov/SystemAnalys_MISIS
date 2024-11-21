@@ -14,7 +14,7 @@ def edges_to_matrix(edges, n):
         matrix[parent][child] = 1
     return matrix
 
-def task(csv_or_edges, is_edges=False, num_nodes=None):
+def main(csv_or_edges, is_edges=False, num_nodes=None):
     """
     Вычисление энтропии структуры графа. Принимает либо CSV строку, либо список рёбер.
     csv_or_edges: строка с матрицей или список рёбер [(1, 2), (2, 3)].
@@ -64,11 +64,11 @@ strings = [
 
 # Пример вызова для матриц
 for i, csv_data in enumerate(strings, start=1):
-    entropy_value = task(csv_data)
+    entropy_value = main(csv_data)
     print(f"Entropy for matrix #{i}: {entropy_value}")
 
 # Пример данных: список рёбер
 edges_list = [(0, 1), (0, 2), (0, 3), (0, 4), (0, 5)] #random
 num_nodes = 6
-entropy_value_edges = task(edges_list, is_edges=True, num_nodes=num_nodes)
+entropy_value_edges = main(edges_list, is_edges=True, num_nodes=num_nodes)
 print(f"Entropy for edges list: {entropy_value_edges}")
