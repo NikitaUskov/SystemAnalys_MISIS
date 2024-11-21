@@ -34,34 +34,36 @@ def find_ancestors(reverse_graph, node):
     return ancestors
 
 
-# Функция для чтения конкретной ячейки из CSV файла
-def get_value_from_csv(csv_file_path, row_num, col_num):
-    with open(csv_file_path, newline='') as csvfile:
-        csv_reader = csv.reader(csvfile)
-        for i, row in enumerate(csv_reader, start=1):  # Нумерация строк начинается с 1
-            if i == row_num:  # Если это нужная строка
+# Функция для чтения рёбер из CSV файла
+def parse_edges_from_csv(filepath):
+    edges = []
+    with open(filepath, newline='') as csvfile:
+        csv_reader = csv.reader(csvfile, delimiter=',')  # Используем запятую как разделитель
+        for row in csv_reader:
+            for edge in row:
                 try:
-                    value = row[col_num - 1]  # Вычитаем 1 для корректной работы с индексом столбца
-                    if value.strip() == '':  # Если значение пустое, возвращаем None
-                        return None
-                    return value  # Возвращаем значение как есть (строка или число)
-                except IndexError:
-                    return f"Ошибка: Номер столбца {col_num} выходит за пределы."
-    return f"Ошибка: Номер строки {row_num} выходит за пределы."
+                    u, v = edge.split('-')
+                    edges.append((int(u), int(v)))
+                except ValueError:
+                    continue  # Пропускаем строки с некорректными данными
+    print(f"Parsed edges: {edges}")  # Отладочный вывод
+    return edges
 
 
 # Основная функция для подсчета отношений
 def main(filepath: str):
-    # Чтение данных из CSV файла через парсер
-    edges = get_value_from_csv(filepath, 1, 1)  # используем свой старый парсер
+    # Чтение рёбер из CSV файла через парсер
+    edges = parse_edges_from_csv(filepath)
+
+    # Проверка на случай, если рёбер нет
+    if not edges:
+        return "Нет рёбер для анализа."
 
     # Создаем граф и обратный граф (для предков)
     graph = defaultdict(list)
     reverse_graph = defaultdict(list)
 
-    for edge in edges:
-        u, v = edge.split('-')
-        u, v = int(u), int(v)
+    for u, v in edges:
         graph[u].append(v)
         reverse_graph[v].append(u)
 
@@ -100,7 +102,7 @@ def main(filepath: str):
 
 # Блок для работы с командной строкой
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Подсчет отношений на основе CSV файла.')
+    parser = argparse.ArgumentParser(description='Подсчет отношений на основе CSV файла. Формат: "u,v"')
     parser.add_argument('filepath', type=str, help='Путь к CSV файлу с данными')
 
     args = parser.parse_args()
