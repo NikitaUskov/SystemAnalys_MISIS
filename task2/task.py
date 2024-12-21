@@ -1,114 +1,93 @@
 import csv
-import argparse
-from collections import defaultdict, deque
 import io
 
 
-# Функция для поиска всех потомков (прямых и косвенных) узла
-def find_descendants(graph, node):
-    descendants = set()
-    queue = deque([node])
-
-    while queue:
-        current = queue.popleft()
-        for neighbor in graph[current]:
-            if neighbor not in descendants:
-                descendants.add(neighbor)
-                queue.append(neighbor)
-
-    return descendants
+def main():
+    file_path = input("Enter the path to the CSV file containing graph edges: ").strip()
+    try:
+        with open(file_path, newline='') as csv_file:
+            metrics_result = process_graph_metrics(csv_file.read())
+        print(metrics_result)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
 
 
-# Функция для поиска всех предков (прямых и косвенных) узла
-def find_ancestors(reverse_graph, node):
-    ancestors = set()
-    queue = deque([node])
-
-    while queue:
-        current = queue.popleft()
-        for neighbor in reverse_graph[current]:
-            if neighbor not in ancestors:
-                ancestors.add(neighbor)
-                queue.append(neighbor)
-
-    return ancestors
-
-
-# Функция для чтения рёбер из CSV файла
-def parse_edges_from_csv(filepath):
+def parse_graph_edges(raw_csv_data: str):
+    csv_reader = csv.reader(raw_csv_data.split('\n'))
     edges = []
-    with open(filepath, newline='') as csvfile:
-        csv_reader = csv.reader(csvfile, delimiter=',')  # Используем запятую как разделитель
-        for row in csv_reader:
-            for edge in row:
-                try:
-                    u, v = edge.split('-')
-                    edges.append((int(u), int(v)))
-                except ValueError:
-                    continue  # Пропускаем строки с некорректными данными
-    print(f"Parsed edges: {edges}")  # Отладочный вывод
-    return edges
+    for row in csv_reader:
+        if len(row) >= 2:
+            edges.append((int(row[0]) - 1, int(row[1]) - 1))
+
+    num_vertices = len(edges) + 1
+    adjacency_list = [[] for _ in range(num_vertices)]
+    reverse_adjacency_list = [[] for _ in range(num_vertices)]
+
+    for source, destination in edges:
+        adjacency_list[source].append(destination)
+        reverse_adjacency_list[destination].append(source)
+
+    return adjacency_list, reverse_adjacency_list, num_vertices
 
 
-# Основная функция для подсчета отношений
-def main(filepath: str):
-    # Чтение рёбер из CSV файла через парсер
-    edges = parse_edges_from_csv(filepath)
+def compute_subtree_sizes_and_parents(graph, subtree_sizes, parents, current_vertex, parent_vertex=-1):
+    if subtree_sizes[current_vertex] != 0:
+        return
 
-    # Проверка на случай, если рёбер нет
-    if not edges:
-        return "Нет рёбер для анализа."
+    subtree_sizes[current_vertex] = 1
+    parents[current_vertex] = parent_vertex
 
-    # Создаем граф и обратный граф (для предков)
-    graph = defaultdict(list)
-    reverse_graph = defaultdict(list)
+    for neighbor in graph[current_vertex]:
+        compute_subtree_sizes_and_parents(graph, subtree_sizes, parents, neighbor, current_vertex)
+        subtree_sizes[current_vertex] += subtree_sizes[neighbor]
 
-    for u, v in edges:
-        graph[u].append(v)
-        reverse_graph[v].append(u)
 
-    # Шаг 2: Подсчет отношений для каждого узла
-    nodes = set(graph.keys()).union(reverse_graph.keys())
-    result = []
+def compute_depths(graph, depths, current_vertex, current_depth=0):
+    depths[current_vertex] = current_depth
+    for neighbor in graph[current_vertex]:
+        compute_depths(graph, depths, neighbor, current_depth + 1)
 
-    for node in nodes:
-        # r1 — непосредственное управление: сколько детей у узла
-        r1 = len(graph[node])
 
-        # r2 — непосредственное подчинение: сколько родителей у узла
-        r2 = len(reverse_graph[node])
+def calculate_subtree_sizes_and_parents(graph, num_vertices):
+    subtree_sizes = [0] * num_vertices
+    parents = [-1] * num_vertices
 
-        # r3 — опосредованное управление: сколько потомков через несколько уровней
-        r3 = len(find_descendants(graph, node)) - r1  # исключаем непосредственных потомков
+    for vertex in range(num_vertices):
+        compute_subtree_sizes_and_parents(graph, subtree_sizes, parents, vertex)
 
-        # r4 — опосредованное подчинение: сколько предков через несколько уровней
-        r4 = len(find_ancestors(reverse_graph, node)) - r2  # исключаем непосредственных предков
+    return subtree_sizes, parents
 
-        # r5 — соподчинение на одном уровне: узлы с теми же родителями
-        r5 = 0
-        for parent in reverse_graph[node]:
-            siblings = graph[parent]
-            r5 += len(siblings) - 1  # исключаем сам узел
 
-        result.append([node, r1, r2, r3, r4, r5])
+def calculate_depths(graph, root_vertex, num_vertices):
+    depths = [0] * num_vertices
+    compute_depths(graph, depths, root_vertex)
+    return depths
 
-    # Шаг 3: Преобразование в CSV строку
+
+def process_graph_metrics(raw_csv_data: str):
+    adjacency_list, reverse_adjacency_list, num_vertices = parse_graph_edges(raw_csv_data)
+
+    subtree_sizes, parents = calculate_subtree_sizes_and_parents(adjacency_list, num_vertices)
+    root_vertex = parents.index(-1)
+
+    depths = calculate_depths(adjacency_list, root_vertex, num_vertices)
+
+    metrics = []
+    for vertex in range(num_vertices):
+        direct_children_count = len(adjacency_list[vertex])
+        has_parent = 0 if vertex == root_vertex else 1
+        indirect_children_count = subtree_sizes[vertex] - direct_children_count - 1
+        vertex_depth = max(depths[vertex] - 1, 0)
+        siblings_count = 0 if vertex == root_vertex else len(adjacency_list[parents[vertex]]) - 1
+
+        metrics.append([direct_children_count, has_parent, indirect_children_count, vertex_depth, siblings_count])
+
     output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerows(result)
+    csv_writer = csv.writer(output)
+    csv_writer.writerows(metrics)
 
     return output.getvalue()
 
 
-# Блок для работы с командной строкой
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Подсчет отношений на основе CSV файла. Формат: "u,v"')
-    parser.add_argument('filepath', type=str, help='Путь к CSV файлу с данными')
-
-    args = parser.parse_args()
-
-    # Вызов функции main с переданным файлом
-    csv_output = main(args.filepath)
-
-    # Вывод результата в консоль
-    print(csv_output)
+    main()
