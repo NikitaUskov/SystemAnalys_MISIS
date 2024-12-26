@@ -4,7 +4,6 @@ import numpy as np
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 
-
 def calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, current_temp):
     temp_mfs = json.loads(temp_mf_json)
     heat_mfs = json.loads(heat_mf_json)
@@ -52,15 +51,13 @@ def calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, current_te
     else:
         raise ValueError("Empty output region")
 
-
 def parse_json(source, default):
     if source.endswith('.json'):
         with open(source, 'r') as file:
             return json.load(file)
     return json.loads(source)
 
-
-if __name__ == "__main__":
+def main():
     default_temp_mf = {
         "температура": [
             {"id": "холодно", "points": [[0, 0], [5, 1], [10, 1], [12, 0]]},
@@ -94,5 +91,11 @@ if __name__ == "__main__":
     heat_mf_json = parse_json(args.heat_file, json.dumps(default_heat_mf))
     rules_json = parse_json(args.rules_file, json.dumps(default_rules))
 
-    optimal_heating = calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, args.current_temp)
-    print(f"{optimal_heating:.2f}")
+    try:
+        optimal_heating = calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, args.current_temp)
+        print(f"{optimal_heating:.2f}")
+    except ValueError as e:
+        print(f"Ошибка: {e}")
+
+if __name__ == "__main__":
+    main()
