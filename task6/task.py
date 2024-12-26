@@ -4,6 +4,7 @@ import numpy as np
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 
+
 def calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, current_temp):
     temp_mfs = json.loads(temp_mf_json)
     heat_mfs = json.loads(heat_mf_json)
@@ -51,18 +52,31 @@ def calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, current_te
     else:
         raise ValueError("Empty output region")
 
-def parse_json(source, default):
-    if source.endswith('.json'):
-        with open(source, 'r') as file:
-            return json.load(file)
-    return json.loads(source)
+
+def load_json(source, default):
+    try:
+        if source.endswith('.json'):
+            with open(source, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return json.loads(source)
+    except Exception as e:
+        print(f"Ошибка при загрузке JSON из {source}: {e}")
+        raise
+
 
 def main():
+    parser = argparse.ArgumentParser(description="Calculate optimal heating level based on fuzzy logic.")
+    parser.add_argument('--temp_file', type=str, help="Path to temperature membership functions JSON file.")
+    parser.add_argument('--heat_file', type=str, help="Path to heating membership functions JSON file.")
+    parser.add_argument('--rules_file', type=str, help="Path to rules JSON file.")
+    parser.add_argument('--current_temp', type=int, required=True, help="Current temperature (integer).")
+    args = parser.parse_args()
+
     default_temp_mf = {
         "температура": [
             {"id": "холодно", "points": [[0, 0], [5, 1], [10, 1], [12, 0]]},
             {"id": "комфортно", "points": [[18, 0], [22, 1], [24, 1], [26, 0]]},
-            {"id": "жарко", "points": [[0, 0], [24, 0], [26, 1], [40, 1], [50, 0]]}
+            {"id": "жарко", "points": [[24, 0], [26, 1], [40, 1], [50, 0]]}
         ]
     }
 
@@ -80,22 +94,17 @@ def main():
         ['жарко', 'слабый']
     ]
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--temp_file', type=str)
-    parser.add_argument('--heat_file', type=str)
-    parser.add_argument('--rules_file', type=str)
-    parser.add_argument('--current_temp', type=int, default=15)
-    args = parser.parse_args()
-
-    temp_mf_json = parse_json(args.temp_file, json.dumps(default_temp_mf))
-    heat_mf_json = parse_json(args.heat_file, json.dumps(default_heat_mf))
-    rules_json = parse_json(args.rules_file, json.dumps(default_rules))
+    temp_mf_json = load_json(args.temp_file, default_temp_mf)
+    heat_mf_json = load_json(args.heat_file, default_heat_mf)
+    rules_json = load_json(args.rules_file, default_rules)
 
     try:
-        optimal_heating = calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, args.current_temp)
-        print(f"{optimal_heating:.2f}")
+        optimal_heating = calculate_optimal_heating(json.dumps(temp_mf_json), json.dumps(heat_mf_json),
+                                                    json.dumps(rules_json), args.current_temp)
+        print(f"Оптимальный уровень нагрева: {optimal_heating:.2f}")
     except ValueError as e:
         print(f"Ошибка: {e}")
+
 
 if __name__ == "__main__":
     main()
