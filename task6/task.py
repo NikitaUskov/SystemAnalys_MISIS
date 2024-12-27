@@ -5,7 +5,7 @@ import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 
 
-def calculate_optimal_heating(temp_mf_json, heat_mf_json, rules_json, current_temp):
+def main(temp_mf_json, heat_mf_json, rules_json, current_temp):
     temp_mfs = json.loads(temp_mf_json)
     heat_mfs = json.loads(heat_mf_json)
     rules = json.loads(rules_json)
@@ -63,24 +63,22 @@ def load_json(source, default):
         print(f"Ошибка при загрузке JSON из {source}: {e}")
         raise
 
+parser = argparse.ArgumentParser(description="Calculate optimal heating level based on fuzzy logic.")
+parser.add_argument('--temp_file', type=str, help="Path to temperature membership functions JSON file.")
+parser.add_argument('--heat_file', type=str, help="Path to heating membership functions JSON file.")
+parser.add_argument('--rules_file', type=str, help="Path to rules JSON file.")
+parser.add_argument('--current_temp', type=int, required=True, help="Current temperature (integer).")
+args = parser.parse_args()
 
-def main():
-    parser = argparse.ArgumentParser(description="Calculate optimal heating level based on fuzzy logic.")
-    parser.add_argument('--temp_file', type=str, help="Path to temperature membership functions JSON file.")
-    parser.add_argument('--heat_file', type=str, help="Path to heating membership functions JSON file.")
-    parser.add_argument('--rules_file', type=str, help="Path to rules JSON file.")
-    parser.add_argument('--current_temp', type=int, required=True, help="Current temperature (integer).")
-    args = parser.parse_args()
+default_temp_mf = {
+    "температура": [
+        {"id": "холодно", "points": [[0, 0], [5, 1], [10, 1], [12, 0]]},
+        {"id": "комфортно", "points": [[18, 0], [22, 1], [24, 1], [26, 0]]},
+        {"id": "жарко", "points": [[24, 0], [26, 1], [40, 1], [50, 0]]}
+    ]
+}
 
-    default_temp_mf = {
-        "температура": [
-            {"id": "холодно", "points": [[0, 0], [5, 1], [10, 1], [12, 0]]},
-            {"id": "комфортно", "points": [[18, 0], [22, 1], [24, 1], [26, 0]]},
-            {"id": "жарко", "points": [[24, 0], [26, 1], [40, 1], [50, 0]]}
-        ]
-    }
-
-    default_heat_mf = {
+default_heat_mf = {
         "уровень нагрева": [
             {"id": "слабый", "points": [[0, 0], [0, 1], [5, 1], [8, 0]]},
             {"id": "умеренный", "points": [[5, 0], [8, 1], [13, 1], [16, 0]]},
@@ -88,23 +86,19 @@ def main():
         ]
     }
 
-    default_rules = [
+default_rules = [
         ['холодно', 'интенсивный'],
         ['комфортно', 'умеренный'],
         ['жарко', 'слабый']
     ]
 
-    temp_mf_json = load_json(args.temp_file, default_temp_mf)
-    heat_mf_json = load_json(args.heat_file, default_heat_mf)
-    rules_json = load_json(args.rules_file, default_rules)
+temp_mf_json = load_json(args.temp_file, default_temp_mf)
+heat_mf_json = load_json(args.heat_file, default_heat_mf)
+rules_json = load_json(args.rules_file, default_rules)
 
-    try:
-        optimal_heating = calculate_optimal_heating(json.dumps(temp_mf_json), json.dumps(heat_mf_json),
-                                                    json.dumps(rules_json), args.current_temp)
-        print(f"Оптимальный уровень нагрева: {optimal_heating:.2f}")
-    except ValueError as e:
-        print(f"Ошибка: {e}")
-
-
-if __name__ == "__main__":
-    main()
+try:
+    optimal_heating = main(json.dumps(temp_mf_json), json.dumps(heat_mf_json),
+                           json.dumps(rules_json), args.current_temp)
+    print(f"Оптимальный уровень нагрева: {optimal_heating:.2f}")
+except ValueError as e:
+    print(f"Ошибка: {e}")
