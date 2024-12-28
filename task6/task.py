@@ -1,14 +1,84 @@
-import argparse
 import json
-import numpy as np
-import skfuzzy as fuzz
-from skfuzzy import control as ctrl
 
+def task(temperature_json, heating_json, rules_json, current_temperature):
+    """
+    Вычисляет оптимальный уровень нагрева с использованием нечеткой логики.
 
-def main(temp_mf_json, heat_mf_json, rules_json, current_temp):
-    temp_mfs = json.loads(temp_mf_json)
-    heat_mfs = json.loads(heat_mf_json)
+    Args:
+        temperature_json (str): JSON-строка с нечеткими множествами для температуры.
+        heating_json (str): JSON-строка с нечеткими множествами для уровней нагрева.
+        rules_json (str): JSON-строка с нечеткими правилами.
+        current_temperature (float): Текущее значение температуры в градусах Цельсия.
+
+    Returns:
+        float: Оптимальный уровень нагрева.
+    """
+    # Разбор входных JSON-строк
+    temperature_sets = json.loads(temperature_json)
+    heating_sets = json.loads(heating_json)
     rules = json.loads(rules_json)
+
+    def membership(value, func):
+        """Вычисляет степень принадлежности значения для нечеткого множества."""
+        if func["type"] == "triangle":
+            a, b, c = func["params"]
+            if value <= a or value >= c:
+                return 0
+            elif a <= value <= b:
+                return (value - a) / (b - a)
+            else:  # b <= value <= c
+                return (c - value) / (c - b)
+        elif func["type"] == "trapezoid":
+            a, b, c, d = func["params"]
+            if value <= a or value >= d:
+                return 0
+            elif b <= value <= c:
+                return 1
+            elif a <= value <= b:
+                return (value - a) / (b - a)
+            else:  # c <= value <= d
+                return (d - value) / (d - c)
+        else:
+            raise ValueError("Неподдерживаемый тип функции принадлежности.")
+
+    # Фаззификация входного значения
+    temperature_memberships = {
+        term: membership(current_temperature, func)
+        for term, func in temperature_sets.items()
+    }
+
+    # Применение нечетких правил
+    rule_results = {}
+    for rule in rules:
+        condition = rule["if"]
+        conclusion = rule["then"]
+
+        # Оценка условия (операция AND)
+        condition_memberships = [temperature_memberships[term] for term in condition]
+        rule_strength = min(condition_memberships)
+
+        # Агрегация заключения (операция OR)
+        if conclusion not in rule_results:
+            rule_results[conclusion] = 0
+        rule_results[conclusion] = max(rule_results[conclusion], rule_strength)
+
+    # Дефаззификация результата методом центроида
+    numerator = 0
+    denominator = 0
+
+    for term, strength in rule_results.items():
+        func = heating_sets[term]
+        a, b, c = func["params"]  # Предполагаем треугольные функции для простоты
+
+        # Вычисление центроида и площади треугольника
+        centroid = (a + b + c) / 3
+        area = 0.5 * (c - a) * strength
+
+        numerator += centroid * area
+        denominator += area
+
+    return numerator / denominator if denominator != 0 else 0
+
 
     min_temp, max_temp = float('inf'), float('-inf')
     min_heat, max_heat = float('inf'), float('-inf')
